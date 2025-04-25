@@ -1,12 +1,12 @@
-import { GraphView } from './components/Graph/GraphView'
-import './App.css'
+import GraphView from './components/Graph/GraphView';
 
 function App() {
   return (
-    <div className="app-container">
-      <GraphView graph={{ nodes: [], edges: [] }} onNodePositionChange={() => {}} />
-    </div>
-  )
+    <main style={{ padding: 16 }}>
+      <h1>Journey Builder</h1>
+      <GraphView />
+    </main>
+  );
 }
 
-export default App
+export default App;
