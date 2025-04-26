@@ -1,0 +1,3 @@
+[submodule "frontendchallengeserver"]
+	path = frontendchallengeserver
+	url = https://github.com/mosaic-avantos/frontendchallengeserver.git
