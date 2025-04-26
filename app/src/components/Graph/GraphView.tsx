@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import ReactFlow, { Background, Controls, Node, Edge, NodeMouseHandler } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { getGraphData } from '../../services/api';
-import { transformGraphData } from '../../utils/graphUtils';
+import { transformGraphData, getUpstreamNodeIds } from '../../utils/graphUtils';
 
 // Example fields for demonstration; in a real app, these would come from node data or API
 const exampleFields = ['dynamic_checkbox_group', 'dynamic_object', 'email'];
@@ -64,6 +64,11 @@ const GraphView = () => {
   const handleInputBlur = (field: string) => {
     setInputFocus(f => ({ ...f, [field]: false }));
   };
+
+  // Get upstream nodes for the selected node
+  const upstreamNodes = selectedNode
+    ? nodes.filter(n => getUpstreamNodeIds(selectedNode.id, edges).includes(n.id))
+    : [];
 
   if (loading) return <p>Loading graph...</p>;
   if (error) return <p>{error}</p>;
@@ -216,6 +221,24 @@ const GraphView = () => {
                 </div>
               ))}
             </div>
+            {/* Upstream forms and fields section */}
+            {upstreamNodes.length > 0 && (
+              <div style={{ marginTop: 32 }}>
+                <h3 style={{ fontSize: 18, color: '#1976d2', marginBottom: 12 }}>Available fields from upstream forms</h3>
+                {upstreamNodes.map(node => (
+                  <div key={node.id} style={{ marginBottom: 10 }}>
+                    <div style={{ fontWeight: 600, color: '#333', marginBottom: 4 }}>{node.data?.label}</div>
+                    <ul style={{ paddingLeft: 18, margin: 0 }}>
+                      {exampleFields.map(field => (
+                        <li key={field} style={{ color: '#555', fontSize: 15, marginBottom: 2 }}>
+                          {field}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
