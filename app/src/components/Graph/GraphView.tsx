@@ -1,23 +1,34 @@
 import { useEffect, useState, useRef } from 'react';
-import ReactFlow, { Background, Controls, Node, Edge, NodeMouseHandler } from 'reactflow';
+import ReactFlow, { Background, Controls, Node as ReactFlowNode, Edge, NodeMouseHandler } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { getGraphData } from '../../services/api';
 import { transformGraphData, getUpstreamNodeIds } from '../../utils/graphUtils';
 import CustomNode from './CustomNode';
+import { Form, FormField } from '../../types';
 
 const nodeTypes = {
   default: CustomNode,
 };
 
-// Example fields for demonstration; in a real app, these would come from node data or API
-const exampleFields = ['dynamic_checkbox_group', 'dynamic_object', 'email'];
+interface SchemaField {
+  type: string;
+  title: string;
+  description?: string;
+  required?: boolean;
+}
+
+interface FieldSchema {
+  type: string;
+  properties: Record<string, SchemaField>;
+}
 
 const GraphView = () => {
-  const [nodes, setNodes] = useState<Node[]>([]);
+  const [nodes, setNodes] = useState<ReactFlowNode[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
+  const [forms, setForms] = useState<Form[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedNode, setSelectedNode] = useState<Node | null>(null);
+  const [selectedNode, setSelectedNode] = useState<ReactFlowNode | null>(null);
   const [prefillMappings, setPrefillMappings] = useState<Record<string, Record<string, string>>>({});
   const [inputFocus, setInputFocus] = useState<{ [key: string]: boolean }>({});
   const [prefillEnabled, setPrefillEnabled] = useState(true);
@@ -29,6 +40,7 @@ const GraphView = () => {
         const { nodes, edges } = transformGraphData(raw);
         setNodes(nodes);
         setEdges(edges);
+        setForms(raw.forms || []);
       } catch (err) {
         setError('Failed to load graph.');
       } finally {
@@ -74,6 +86,20 @@ const GraphView = () => {
   const upstreamNodes = selectedNode
     ? nodes.filter(n => getUpstreamNodeIds(selectedNode.id, edges).includes(n.id))
     : [];
+
+  // Get form fields from the selected node's form data
+  const formFields = selectedNode ? forms.find(
+    form => form.id === selectedNode.data.component_id
+  )?.field_schema.properties : {};
+
+  const fields = formFields ? Object.entries(formFields).map(([id, field]) => ({
+    id,
+    label: field.title || id,
+    type: field.type,
+    description: field.description,
+    required: field.required,
+    avantos_type: field.avantos_type
+  })) : [];
 
   if (loading) return <p>Loading graph...</p>;
   if (error) return <p>{error}</p>;
@@ -135,7 +161,7 @@ const GraphView = () => {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
               <div>
                 <h2 style={{ margin: 0, fontSize: 24 }}>Prefill</h2>
-                <div style={{ color: '#666', fontSize: 15 }}>Prefill fields for this form</div>
+                <div style={{ color: '#666', fontSize: 15 }}>Prefill fields for {selectedNode.data.name}</div>
               </div>
               <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
                 <input
@@ -170,21 +196,27 @@ const GraphView = () => {
               </label>
             </div>
             <div>
-              {exampleFields.map(field => (
-                <div key={field} style={{
+              {fields.map(field => (
+                <div key={field.id} style={{
                   background: '#f7fafd',
-                  border: prefillMappings[selectedNode.id]?.[field] ? '2px solid #90caf9' : '1px solid #e0e0e0',
+                  border: prefillMappings[selectedNode.id]?.[field.id] ? '2px solid #90caf9' : '1px solid #e0e0e0',
                   borderRadius: 12,
                   padding: '16px 20px',
                   marginBottom: 14,
                   display: 'flex',
                   alignItems: 'center',
-                  boxShadow: prefillMappings[selectedNode.id]?.[field] ? '0 0 0 2px #e3f2fd' : 'none',
+                  boxShadow: prefillMappings[selectedNode.id]?.[field.id] ? '0 0 0 2px #e3f2fd' : 'none',
                   opacity: prefillEnabled ? 1 : 0.5
                 }}>
                   <span style={{ fontSize: 22, marginRight: 14, color: '#90caf9' }}>🗄️</span>
-                  <span style={{ flex: 1, fontWeight: 500, color: '#1976d2', fontSize: 17 }}>{field}</span>
-                  {prefillMappings[selectedNode.id]?.[field] && !inputFocus[field] ? (
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 500, color: '#1976d2', fontSize: 17 }}>{field.label}</div>
+                    {field.description && (
+                      <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>{field.description}</div>
+                    )}
+                    <div style={{ fontSize: 12, color: '#666', marginTop: 2 }}>Type: {field.avantos_type || field.type}</div>
+                  </div>
+                  {prefillMappings[selectedNode.id]?.[field.id] && !inputFocus[field.id] ? (
                     <span style={{
                       background: '#f1f1f1',
                       color: '#333',
@@ -195,9 +227,9 @@ const GraphView = () => {
                       alignItems: 'center',
                       fontSize: 15
                     }}>
-                      {`email: ${prefillMappings[selectedNode.id][field]}`}
+                      {prefillMappings[selectedNode.id][field.id]}
                       <button
-                        onClick={() => handleClearMapping(field)}
+                        onClick={() => handleClearMapping(field.id)}
                         style={{
                           background: 'none',
                           border: 'none',
@@ -214,11 +246,11 @@ const GraphView = () => {
                   ) : (
                     <input
                       type="text"
-                      placeholder="e.g. Form A.email"
-                      value={prefillMappings[selectedNode.id]?.[field] || ''}
-                      onChange={e => handleMappingChange(field, e.target.value)}
-                      onFocus={() => handleInputFocus(field)}
-                      onBlur={() => handleInputBlur(field)}
+                      placeholder="Select upstream field"
+                      value={prefillMappings[selectedNode.id]?.[field.id] || ''}
+                      onChange={e => handleMappingChange(field.id, e.target.value)}
+                      onFocus={() => handleInputFocus(field.id)}
+                      onBlur={() => handleInputBlur(field.id)}
                       style={{
                         marginLeft: 12,
                         background: '#fff',
@@ -239,18 +271,23 @@ const GraphView = () => {
             {upstreamNodes.length > 0 && (
               <div style={{ marginTop: 32 }}>
                 <h3 style={{ fontSize: 18, color: '#1976d2', marginBottom: 12 }}>Available fields from upstream forms</h3>
-                {upstreamNodes.map(node => (
-                  <div key={node.id} style={{ marginBottom: 10 }}>
-                    <div style={{ fontWeight: 600, color: '#333', marginBottom: 4 }}>{node.data?.label}</div>
-                    <ul style={{ paddingLeft: 18, margin: 0 }}>
-                      {exampleFields.map(field => (
-                        <li key={field} style={{ color: '#555', fontSize: 15, marginBottom: 2 }}>
-                          {field}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
+                {upstreamNodes.map(node => {
+                  const upstreamForm = forms.find(form => form.id === node.data.component_id);
+                  const upstreamFields = upstreamForm?.field_schema.properties || {};
+                  
+                  return (
+                    <div key={node.id} style={{ marginBottom: 10 }}>
+                      <div style={{ fontWeight: 600, color: '#333', marginBottom: 4 }}>{node.data.name}</div>
+                      <ul style={{ paddingLeft: 18, margin: 0 }}>
+                        {Object.entries(upstreamFields).map(([id, field]) => (
+                          <li key={id} style={{ color: '#555', fontSize: 15, marginBottom: 2 }}>
+                            {field.title || id}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
