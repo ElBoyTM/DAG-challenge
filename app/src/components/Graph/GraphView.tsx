@@ -3,6 +3,11 @@ import ReactFlow, { Background, Controls, Node, Edge, NodeMouseHandler } from 'r
 import 'reactflow/dist/style.css';
 import { getGraphData } from '../../services/api';
 import { transformGraphData, getUpstreamNodeIds } from '../../utils/graphUtils';
+import CustomNode from './CustomNode';
+
+const nodeTypes = {
+  default: CustomNode,
+};
 
 // Example fields for demonstration; in a real app, these would come from node data or API
 const exampleFields = ['dynamic_checkbox_group', 'dynamic_object', 'email'];
@@ -75,7 +80,16 @@ const GraphView = () => {
 
   return (
     <div style={{ width: '100vw', height: '100vh', position: 'fixed', top: 0, left: 0 }}>
-      <ReactFlow nodes={nodes} edges={edges} fitView onNodeClick={handleNodeClick}>
+      <ReactFlow 
+        nodes={nodes} 
+        edges={edges} 
+        nodeTypes={nodeTypes}
+        fitView 
+        onNodeClick={handleNodeClick}
+        defaultEdgeOptions={{
+          type: 'smoothstep'
+        }}
+      >
         <Background />
         <Controls />
       </ReactFlow>
