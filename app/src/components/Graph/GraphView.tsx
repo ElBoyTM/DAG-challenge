@@ -114,6 +114,7 @@ const GraphView = () => {
           }
         }
       };
+      console.log('Updated fieldValues:', newValues);
 
       // Propagate values to downstream nodes
       const downstreamEdges = edges.filter(edge => edge.source === nodeId);
@@ -162,7 +163,17 @@ const GraphView = () => {
     const focusedField = Object.entries(inputFocus).find(([_, isFocused]) => isFocused)?.[0];
     console.log('Focused field:', focusedField);
     if (!focusedField) {
-      // No field is focused, prompt user to select a target field
+      // If the selected node has a field with the same name, map automatically
+      const formFields = forms.find(
+        form => form.id === selectedNode.data.component_id
+      )?.field_schema.properties || {};
+      console.log('Auto-mapping check:', { upstreamFieldId, formFields, hasMatch: !!formFields[upstreamFieldId] });
+      if (formFields[upstreamFieldId]) {
+        console.log('Auto-mapping to field:', upstreamFieldId);
+        handleSelectTargetField(upstreamFieldId, upstreamNodeId, upstreamFieldId);
+        return;
+      }
+      // Otherwise, prompt user to select a target field
       setSelectTargetField({ upstreamNodeId, upstreamFieldId });
       return;
     }
@@ -202,10 +213,10 @@ const GraphView = () => {
   };
 
   // Handler for when user selects a target field from the dropdown
-  const handleSelectTargetField = (targetFieldId: string) => {
-    if (!selectTargetField || !selectedNode) return;
-    const { upstreamNodeId, upstreamFieldId } = selectTargetField;
+  const handleSelectTargetField = (targetFieldId: string, upstreamNodeId: string, upstreamFieldId: string) => {
+    if (!selectedNode) return;
     const mappingValue = `${upstreamNodeId}.${upstreamFieldId}`;
+    console.log('Setting mapping:', { nodeId: selectedNode.id, targetFieldId, mappingValue });
     setPrefillMappings(prev => ({
       ...prev,
       [selectedNode.id]: {
@@ -215,9 +226,14 @@ const GraphView = () => {
     }));
     const upstreamField = fieldValues[upstreamNodeId]?.[upstreamFieldId];
     const targetField = fieldValues[selectedNode.id]?.[targetFieldId];
+    console.log('Propagating value in handleSelectTargetField:', {
+      upstreamField,
+      targetField
+    });
     if (upstreamField?.value !== undefined && 
         upstreamField.avantos_type === 'button' && 
         targetField?.avantos_type === 'button') {
+      console.log('Calling handleFieldValueChange from handleSelectTargetField', { nodeId: selectedNode.id, targetFieldId, value: upstreamField.value });
       handleFieldValueChange(selectedNode.id, targetFieldId, upstreamField.value);
     }
     setSelectTargetField(null);
@@ -496,7 +512,7 @@ const GraphView = () => {
                             cursor: 'pointer',
                             fontSize: 16
                           }}
-                          onClick={() => handleSelectTargetField(field.id)}
+                          onClick={() => selectTargetField && handleSelectTargetField(field.id, selectTargetField.upstreamNodeId, selectTargetField.upstreamFieldId)}
                         >
                           {field.label}
                         </button>
