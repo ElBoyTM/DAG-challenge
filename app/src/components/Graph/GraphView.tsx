@@ -138,6 +138,8 @@ const GraphView = () => {
             borderRadius: 16,
             padding: 32,
             minWidth: 420,
+            maxHeight: '80vh',
+            overflowY: 'auto',
             boxShadow: '0 2px 24px rgba(0,0,0,0.25)',
             position: 'relative',
             fontFamily: 'inherit'
@@ -145,20 +147,34 @@ const GraphView = () => {
             <button
               onClick={() => setSelectedNode(null)}
               style={{
-                position: 'absolute',
-                top: 16,
+                position: 'sticky',
+                top: 0,
                 right: 16,
                 background: 'none',
                 border: 'none',
                 fontSize: 24,
                 color: '#888',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                zIndex: 1,
+                marginLeft: 'auto',
+                display: 'block',
+                width: 'fit-content'
               }}
               aria-label="Close"
             >
               ×
             </button>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'space-between', 
+              marginBottom: 16,
+              position: 'sticky',
+              top: 0,
+              zIndex: 1,
+              background: '#fff',
+              paddingTop: 8
+            }}>
               <div>
                 <h2 style={{ margin: 0, fontSize: 24 }}>Prefill</h2>
                 <div style={{ color: '#666', fontSize: 15 }}>Prefill fields for {selectedNode.data.name}</div>
