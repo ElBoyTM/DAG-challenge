@@ -74,7 +74,7 @@ const GraphView = () => {
   if (error) return <p>{error}</p>;
 
   return (
-    <div style={{ width: '100%', height: '100vh' }}>
+    <div style={{ width: '100vw', height: '100vh', position: 'fixed', top: 0, left: 0 }}>
       <ReactFlow nodes={nodes} edges={edges} fitView onNodeClick={handleNodeClick}>
         <Background />
         <Controls />
