@@ -32,6 +32,8 @@ const GraphView = () => {
   const [prefillMappings, setPrefillMappings] = useState<Record<string, Record<string, string>>>({});
   const [inputFocus, setInputFocus] = useState<{ [key: string]: boolean }>({});
   const [prefillEnabled, setPrefillEnabled] = useState(true);
+  const [fieldValues, setFieldValues] = useState<Record<string, Record<string, FormField>>>({});
+  const [selectTargetField, setSelectTargetField] = useState<null | { upstreamNodeId: string, upstreamFieldId: string }>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -41,6 +43,22 @@ const GraphView = () => {
         setNodes(nodes);
         setEdges(edges);
         setForms(raw.forms || []);
+        
+        // Initialize field values from form data
+        const initialValues: Record<string, Record<string, FormField>> = {};
+        nodes.forEach(node => {
+          const form = raw.forms?.find((f: Form) => f.id === node.data.component_id);
+          if (form?.field_schema?.properties) {
+            initialValues[node.id] = {};
+            Object.entries(form.field_schema.properties).forEach(([fieldId, field]) => {
+              initialValues[node.id][fieldId] = {
+                ...field as FormField,
+                value: (field as FormField).default || ''
+              };
+            });
+          }
+        });
+        setFieldValues(initialValues);
       } catch (err) {
         setError('Failed to load graph.');
       } finally {
@@ -78,9 +96,133 @@ const GraphView = () => {
   const handleInputFocus = (field: string) => {
     setInputFocus(f => ({ ...f, [field]: true }));
   };
+
   const handleInputBlur = (field: string) => {
     setInputFocus(f => ({ ...f, [field]: false }));
   };
+
+  const handleFieldValueChange = (nodeId: string, fieldId: string, value: any) => {
+    console.log('handleFieldValueChange:', { nodeId, fieldId, value });
+    setFieldValues(prev => {
+      const newValues = {
+        ...prev,
+        [nodeId]: {
+          ...prev[nodeId],
+          [fieldId]: {
+            ...prev[nodeId][fieldId],
+            value
+          }
+        }
+      };
+
+      // Propagate values to downstream nodes
+      const downstreamEdges = edges.filter(edge => edge.source === nodeId);
+      downstreamEdges.forEach(edge => {
+        const targetNode = nodes.find(n => n.id === edge.target);
+        if (targetNode) {
+          const mappings = prefillMappings[targetNode.id] || {};
+          console.log('Checking mappings for target node:', targetNode.id, mappings);
+          Object.entries(mappings).forEach(([targetField, sourceMapping]) => {
+            const [sourceNodeId, sourceFieldId] = sourceMapping.split('.');
+            console.log('Checking mapping:', { sourceNodeId, sourceFieldId, targetField });
+            if (sourceNodeId === nodeId && sourceFieldId === fieldId) {
+              const sourceField = newValues[sourceNodeId][sourceFieldId];
+              const targetFieldObj = newValues[targetNode.id][targetField];
+              console.log('Field types:', {
+                sourceType: sourceField?.avantos_type,
+                targetType: targetFieldObj?.avantos_type,
+                sourceValue: sourceField?.value,
+                targetValue: targetFieldObj?.value
+              });
+              
+              if (sourceField?.avantos_type === 'button' && targetFieldObj?.avantos_type === 'button') {
+                console.log('Propagating button value:', sourceField.value);
+                newValues[targetNode.id] = {
+                  ...newValues[targetNode.id],
+                  [targetField]: {
+                    ...targetFieldObj,
+                    value: sourceField.value
+                  }
+                };
+              }
+            }
+          });
+        }
+      });
+
+      return newValues;
+    });
+  };
+
+  const handleUpstreamFieldClick = (upstreamNodeId: string, upstreamFieldId: string) => {
+    console.log('handleUpstreamFieldClick:', { upstreamNodeId, upstreamFieldId });
+    if (!selectedNode) return;
+    
+    // Find the currently focused field
+    const focusedField = Object.entries(inputFocus).find(([_, isFocused]) => isFocused)?.[0];
+    console.log('Focused field:', focusedField);
+    if (!focusedField) {
+      // No field is focused, prompt user to select a target field
+      setSelectTargetField({ upstreamNodeId, upstreamFieldId });
+      return;
+    }
+
+    // Create the mapping value in format: "nodeId.fieldId"
+    const mappingValue = `${upstreamNodeId}.${upstreamFieldId}`;
+    
+    // Update the mapping
+    setPrefillMappings(prev => {
+      const newMappings = {
+        ...prev,
+        [selectedNode.id]: {
+          ...prev[selectedNode.id],
+          [focusedField]: mappingValue
+        }
+      };
+      console.log('Updated mappings:', newMappings);
+      return newMappings;
+    });
+
+    // Immediately propagate the current value
+    const upstreamField = fieldValues[upstreamNodeId]?.[upstreamFieldId];
+    const targetField = fieldValues[selectedNode.id]?.[focusedField];
+    console.log('Field values:', {
+      upstreamField,
+      targetField,
+      upstreamValue: upstreamField?.value,
+      targetValue: targetField?.value
+    });
+    
+    if (upstreamField?.value !== undefined && 
+        upstreamField.avantos_type === 'button' && 
+        targetField?.avantos_type === 'button') {
+      console.log('Propagating value from upstream:', upstreamField.value);
+      handleFieldValueChange(selectedNode.id, focusedField, upstreamField.value);
+    }
+  };
+
+  // Handler for when user selects a target field from the dropdown
+  const handleSelectTargetField = (targetFieldId: string) => {
+    if (!selectTargetField || !selectedNode) return;
+    const { upstreamNodeId, upstreamFieldId } = selectTargetField;
+    const mappingValue = `${upstreamNodeId}.${upstreamFieldId}`;
+    setPrefillMappings(prev => ({
+      ...prev,
+      [selectedNode.id]: {
+        ...prev[selectedNode.id],
+        [targetFieldId]: mappingValue
+      }
+    }));
+    const upstreamField = fieldValues[upstreamNodeId]?.[upstreamFieldId];
+    const targetField = fieldValues[selectedNode.id]?.[targetFieldId];
+    if (upstreamField?.value !== undefined && 
+        upstreamField.avantos_type === 'button' && 
+        targetField?.avantos_type === 'button') {
+      handleFieldValueChange(selectedNode.id, targetFieldId, upstreamField.value);
+    }
+    setSelectTargetField(null);
+  };
+  const handleCancelSelectTargetField = () => setSelectTargetField(null);
 
   // Get upstream nodes for the selected node
   const upstreamNodes = selectedNode
@@ -243,7 +385,7 @@ const GraphView = () => {
                       alignItems: 'center',
                       fontSize: 15
                     }}>
-                      {prefillMappings[selectedNode.id][field.id]}
+                      {fieldValues[selectedNode.id]?.[field.id]?.value || ''}
                       <button
                         onClick={() => handleClearMapping(field.id)}
                         style={{
@@ -262,9 +404,9 @@ const GraphView = () => {
                   ) : (
                     <input
                       type="text"
-                      placeholder="Select upstream field"
-                      value={prefillMappings[selectedNode.id]?.[field.id] || ''}
-                      onChange={e => handleMappingChange(field.id, e.target.value)}
+                      placeholder={field.avantos_type === 'button' ? "Enter button value" : "Select upstream field"}
+                      value={fieldValues[selectedNode.id]?.[field.id]?.value || ''}
+                      onChange={e => handleFieldValueChange(selectedNode.id, field.id, e.target.value)}
                       onFocus={() => handleInputFocus(field.id)}
                       onBlur={() => handleInputBlur(field.id)}
                       style={{
@@ -296,7 +438,18 @@ const GraphView = () => {
                       <div style={{ fontWeight: 600, color: '#333', marginBottom: 4 }}>{node.data.name}</div>
                       <ul style={{ paddingLeft: 18, margin: 0 }}>
                         {Object.entries(upstreamFields).map(([id, field]) => (
-                          <li key={id} style={{ color: '#555', fontSize: 15, marginBottom: 2 }}>
+                          <li 
+                            key={id} 
+                            style={{ 
+                              color: '#555', 
+                              fontSize: 15, 
+                              marginBottom: 2,
+                              cursor: 'pointer',
+                              padding: '4px 8px',
+                              borderRadius: 4
+                            }}
+                            onClick={() => handleUpstreamFieldClick(node.id, id)}
+                          >
                             {field.title || id}
                           </li>
                         ))}
@@ -304,6 +457,54 @@ const GraphView = () => {
                     </div>
                   );
                 })}
+              </div>
+            )}
+            {/* Target field selection dropdown/modal */}
+            {selectTargetField && (
+              <div style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                width: '100vw',
+                height: '100vh',
+                background: 'rgba(0,0,0,0.3)',
+                zIndex: 2000,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <div style={{
+                  background: '#fff',
+                  borderRadius: 12,
+                  padding: 24,
+                  minWidth: 320,
+                  boxShadow: '0 2px 24px rgba(0,0,0,0.25)'
+                }}>
+                  <div style={{ marginBottom: 16, fontWeight: 600, fontSize: 18 }}>Select a field to map to</div>
+                  <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                    {fields.map(field => (
+                      <li key={field.id} style={{ marginBottom: 8 }}>
+                        <button
+                          style={{
+                            width: '100%',
+                            padding: '8px 12px',
+                            borderRadius: 8,
+                            border: '1px solid #90caf9',
+                            background: '#f7fafd',
+                            color: '#1976d2',
+                            fontWeight: 500,
+                            cursor: 'pointer',
+                            fontSize: 16
+                          }}
+                          onClick={() => handleSelectTargetField(field.id)}
+                        >
+                          {field.label}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                  <button onClick={handleCancelSelectTargetField} style={{ marginTop: 16, color: '#888', background: 'none', border: 'none', cursor: 'pointer' }}>Cancel</button>
+                </div>
               </div>
             )}
           </div>

@@ -12,6 +12,8 @@ export interface FormField {
     type: string;
   };
   uniqueItems?: boolean;
+  value?: any;
+  default?: any;
 }
 
 export interface FieldSchema {
