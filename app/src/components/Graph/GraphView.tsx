@@ -22,6 +22,16 @@ interface FieldSchema {
   properties: Record<string, SchemaField>;
 }
 
+// Global data sources
+const ACTION_PROPERTIES = [
+  { id: 'action_id', label: 'Action ID', value: 'ACT-123' },
+  { id: 'action_type', label: 'Action Type', value: 'Create' }
+];
+const CLIENT_ORG_PROPERTIES = [
+  { id: 'org_id', label: 'Organization ID', value: 'ORG-456' },
+  { id: 'org_name', label: 'Organization Name', value: 'Acme Corp' }
+];
+
 const GraphView = () => {
   const [nodes, setNodes] = useState<ReactFlowNode[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
@@ -115,42 +125,43 @@ const GraphView = () => {
         }
       };
       console.log('Updated fieldValues:', newValues);
-
       // Propagate values to downstream nodes
       const downstreamEdges = edges.filter(edge => edge.source === nodeId);
       downstreamEdges.forEach(edge => {
         const targetNode = nodes.find(n => n.id === edge.target);
         if (targetNode) {
           const mappings = prefillMappings[targetNode.id] || {};
-          console.log('Checking mappings for target node:', targetNode.id, mappings);
           Object.entries(mappings).forEach(([targetField, sourceMapping]) => {
+            // Support global mappings
+            if (sourceMapping.startsWith('global:')) {
+              const globalKey = sourceMapping.replace('global:', '');
+              const globalValue =
+                ACTION_PROPERTIES.find(g => g.id === globalKey)?.value ||
+                CLIENT_ORG_PROPERTIES.find(g => g.id === globalKey)?.value || '';
+              newValues[targetNode.id] = {
+                ...newValues[targetNode.id],
+                [targetField]: {
+                  ...newValues[targetNode.id][targetField],
+                  value: globalValue
+                }
+              };
+              return;
+            }
             const [sourceNodeId, sourceFieldId] = sourceMapping.split('.');
-            console.log('Checking mapping:', { sourceNodeId, sourceFieldId, targetField });
-            if (sourceNodeId === nodeId && sourceFieldId === fieldId) {
-              const sourceField = newValues[sourceNodeId][sourceFieldId];
-              const targetFieldObj = newValues[targetNode.id][targetField];
-              console.log('Field types:', {
-                sourceType: sourceField?.avantos_type,
-                targetType: targetFieldObj?.avantos_type,
-                sourceValue: sourceField?.value,
-                targetValue: targetFieldObj?.value
-              });
-              
-              if (sourceField?.avantos_type === 'button' && targetFieldObj?.avantos_type === 'button') {
-                console.log('Propagating button value:', sourceField.value);
-                newValues[targetNode.id] = {
-                  ...newValues[targetNode.id],
-                  [targetField]: {
-                    ...targetFieldObj,
-                    value: sourceField.value
-                  }
-                };
-              }
+            const sourceField = newValues[sourceNodeId]?.[sourceFieldId];
+            const targetFieldObj = newValues[targetNode.id][targetField];
+            if (sourceField?.avantos_type === 'button' && targetFieldObj?.avantos_type === 'button') {
+              newValues[targetNode.id] = {
+                ...newValues[targetNode.id],
+                [targetField]: {
+                  ...targetFieldObj,
+                  value: sourceField.value
+                }
+              };
             }
           });
         }
       });
-
       return newValues;
     });
   };
@@ -258,6 +269,25 @@ const GraphView = () => {
     required: field.required,
     avantos_type: field.avantos_type
   })) : [];
+
+  // Handler for mapping to a global value
+  const handleMapToGlobal = (targetFieldId: string, globalKey: string) => {
+    if (!selectedNode) return;
+    const mappingValue = `global:${globalKey}`;
+    setPrefillMappings(prev => ({
+      ...prev,
+      [selectedNode.id]: {
+        ...prev[selectedNode.id],
+        [targetFieldId]: mappingValue
+      }
+    }));
+    // Immediately propagate the value
+    const globalValue =
+      ACTION_PROPERTIES.find(g => g.id === globalKey)?.value ||
+      CLIENT_ORG_PROPERTIES.find(g => g.id === globalKey)?.value || '';
+    handleFieldValueChange(selectedNode.id, targetFieldId, globalValue);
+    setSelectTargetField(null);
+  };
 
   if (loading) return <p>Loading graph...</p>;
   if (error) return <p>{error}</p>;
@@ -445,6 +475,34 @@ const GraphView = () => {
             {upstreamNodes.length > 0 && (
               <div style={{ marginTop: 32 }}>
                 <h3 style={{ fontSize: 18, color: '#1976d2', marginBottom: 12 }}>Available fields from upstream forms</h3>
+                {/* Global data sources */}
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontWeight: 600, color: '#333', marginBottom: 4 }}>Action Properties</div>
+                  <ul style={{ paddingLeft: 18, margin: 0 }}>
+                    {ACTION_PROPERTIES.map(g => (
+                      <li
+                        key={g.id}
+                        style={{ color: '#555', fontSize: 15, marginBottom: 2, cursor: 'pointer', padding: '4px 8px', borderRadius: 4 }}
+                        onClick={() => handleUpstreamFieldClick('global', g.id)}
+                      >
+                        {g.label}
+                      </li>
+                    ))}
+                  </ul>
+                  <div style={{ fontWeight: 600, color: '#333', margin: '12px 0 4px 0' }}>Client Organization Properties</div>
+                  <ul style={{ paddingLeft: 18, margin: 0 }}>
+                    {CLIENT_ORG_PROPERTIES.map(g => (
+                      <li
+                        key={g.id}
+                        style={{ color: '#555', fontSize: 15, marginBottom: 2, cursor: 'pointer', padding: '4px 8px', borderRadius: 4 }}
+                        onClick={() => handleUpstreamFieldClick('global', g.id)}
+                      >
+                        {g.label}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                {/* Upstream forms */}
                 {upstreamNodes.map(node => {
                   const upstreamForm = forms.find(form => form.id === node.data.component_id);
                   const upstreamFields = upstreamForm?.field_schema.properties || {};
@@ -512,7 +570,9 @@ const GraphView = () => {
                             cursor: 'pointer',
                             fontSize: 16
                           }}
-                          onClick={() => selectTargetField && handleSelectTargetField(field.id, selectTargetField.upstreamNodeId, selectTargetField.upstreamFieldId)}
+                          onClick={() => selectTargetField && (selectTargetField.upstreamNodeId === 'global'
+                            ? handleMapToGlobal(field.id, selectTargetField.upstreamFieldId)
+                            : handleSelectTargetField(field.id, selectTargetField.upstreamNodeId, selectTargetField.upstreamFieldId))}
                         >
                           {field.label}
                         </button>
