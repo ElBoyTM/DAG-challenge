@@ -308,18 +308,23 @@ const GraphView = () => {
         <Controls />
       </ReactFlow>
       {selectedNode && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          width: '100vw',
-          height: '100vh',
-          background: 'rgba(0,0,0,0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000
-        }}>
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100vw',
+            height: '100vh',
+            background: 'rgba(0,0,0,0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000
+          }}
+          onClick={e => {
+            if (e.target === e.currentTarget) setSelectedNode(null);
+          }}
+        >
           <div style={{
             background: '#fff',
             color: '#222',
@@ -535,18 +540,23 @@ const GraphView = () => {
             )}
             {/* Target field selection dropdown/modal */}
             {selectTargetField && (
-              <div style={{
-                position: 'fixed',
-                top: 0,
-                left: 0,
-                width: '100vw',
-                height: '100vh',
-                background: 'rgba(0,0,0,0.3)',
-                zIndex: 2000,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}>
+              <div
+                style={{
+                  position: 'fixed',
+                  top: 0,
+                  left: 0,
+                  width: '100vw',
+                  height: '100vh',
+                  background: 'rgba(0,0,0,0.3)',
+                  zIndex: 2000,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+                onClick={e => {
+                  if (e.target === e.currentTarget) handleCancelSelectTargetField();
+                }}
+              >
                 <div style={{
                   background: '#fff',
                   borderRadius: 12,
