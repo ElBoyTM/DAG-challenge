@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import ReactFlow, { Background, Controls, Node as ReactFlowNode, Edge, NodeMouseHandler } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { getGraphData } from '../../services/api';
@@ -9,18 +9,6 @@ import { Form, FormField } from '../../types';
 const nodeTypes = {
   default: CustomNode,
 };
-
-interface SchemaField {
-  type: string;
-  title: string;
-  description?: string;
-  required?: boolean;
-}
-
-interface FieldSchema {
-  type: string;
-  properties: Record<string, SchemaField>;
-}
 
 // Global data sources
 const ACTION_PROPERTIES = [
@@ -79,19 +67,8 @@ const GraphView = () => {
     load();
   }, []);
 
-  const handleNodeClick: NodeMouseHandler = (event, node) => {
+  const handleNodeClick: NodeMouseHandler = (_event, node) => {
     setSelectedNode(node);
-  };
-
-  const handleMappingChange = (field: string, value: string) => {
-    if (!selectedNode) return;
-    setPrefillMappings(prev => ({
-      ...prev,
-      [selectedNode.id]: {
-        ...prev[selectedNode.id],
-        [field]: value
-      }
-    }));
   };
 
   const handleClearMapping = (field: string) => {
