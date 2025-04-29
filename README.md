@@ -1,54 +1,42 @@
-# React + TypeScript + Vite
+# DAG Challenge
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+## 1. Running Locally
 
-Currently, two official plugins are available:
+1. **Open two terminals**
+   CD into both "app" and "frontendchallengeserver".
+2. **Install dependencies:**
+   Run `npm install` in the "app" terminal.
+3. **Start the mock server:**
+   In the "frontendchallengeserver" terminal, run `npm start`.
+4. **Start the development server:**
+   In the "app" terminal, run `npm run dev`.
+5. **Open your browser:**
+   Visit [http://localhost:5173](http://localhost:5173) (or the port shown in your terminal).
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+---
 
-## Expanding the ESLint configuration
+## 2. Extending with New Data Sources
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+- **Add new API calls:**
+  - Place API logic in `src/services/api.ts`.
+  - Use `axios` for HTTP requests.
+- **Add new data types:**
+  - Define TypeScript interfaces in `src/types/`.
+- **Integrate with components:**
+  - Fetch and use new data in components under `src/components/`.
+  - Use React hooks (`useEffect`, `useState`) for data fetching and state management.
 
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
-```
+---
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## 3. Patterns to Pay Attention To
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default tseslint.config({
-  plugins: {
-    // Add the react-x and react-dom plugins
-    'react-x': reactX,
-    'react-dom': reactDom,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended typescript rules
-    ...reactX.configs['recommended-typescript'].rules,
-    ...reactDom.configs.recommended.rules,
-  },
-})
-```
+- **Separation of Concerns:**
+  - UI components, utilities, services, and types are organized in separate folders.
+- **Type Safety:**
+  - All data structures and props are typed with TypeScript interfaces.
+- **Reusable Components:**
+  - Components are designed to be composable and accept props for flexibility.
+- **Data Flow:**
+  - Data is passed via props and managed with React state/hooks.
+- **Testing:**
+  - Utility functions are tested with Vitest (see `src/utils/graphUtils.test.ts`).
