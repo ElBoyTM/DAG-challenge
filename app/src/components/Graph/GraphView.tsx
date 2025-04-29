@@ -127,7 +127,7 @@ const GraphView = () => {
             const [sourceNodeId, sourceFieldId] = sourceMapping.split('.');
             const sourceField = newValues[sourceNodeId]?.[sourceFieldId];
             const targetFieldObj = newValues[targetNode.id][targetField];
-            if (sourceField?.avantos_type === 'button' && targetFieldObj?.avantos_type === 'button') {
+            if (sourceField && targetFieldObj) {
               newValues[targetNode.id] = {
                 ...newValues[targetNode.id],
                 [targetField]: {
@@ -192,9 +192,7 @@ const GraphView = () => {
       targetValue: targetField?.value
     });
     
-    if (upstreamField?.value !== undefined && 
-        upstreamField.avantos_type === 'button' && 
-        targetField?.avantos_type === 'button') {
+    if (upstreamField?.value !== undefined && targetField) {
       console.log('Propagating value from upstream:', upstreamField.value);
       handleFieldValueChange(selectedNode.id, focusedField, upstreamField.value);
     }
@@ -218,9 +216,7 @@ const GraphView = () => {
       upstreamField,
       targetField
     });
-    if (upstreamField?.value !== undefined && 
-        upstreamField.avantos_type === 'button' && 
-        targetField?.avantos_type === 'button') {
+    if (upstreamField?.value !== undefined && targetField) {
       console.log('Calling handleFieldValueChange from handleSelectTargetField', { nodeId: selectedNode.id, targetFieldId, value: upstreamField.value });
       handleFieldValueChange(selectedNode.id, targetFieldId, upstreamField.value);
     }
